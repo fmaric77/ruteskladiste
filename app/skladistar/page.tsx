@@ -13,9 +13,9 @@ interface Kamion {
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
-  const day = date.getDate().toString().padStart(2, '0');     // Remove UTC
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');  // Remove UTC
-  const year = date.getFullYear();  // Remove UTC
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
   return `${day}.${month}.${year}`;
 };
 
@@ -50,9 +50,10 @@ const SkladistarDashboard = () => {
         }
 
         setKamioni(data);
-      } catch (err: any) {
+      } catch (err) {
+        const errorMessage = (err as Error).message || 'Greška pri učitavanju podataka.';
         console.error(err);
-        setError(err.message || 'Greška pri učitavanju podataka.');
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -80,9 +81,10 @@ const SkladistarDashboard = () => {
           kamion.id === kamionId ? { ...kamion, status: newStatus } : kamion
         )
       );
-    } catch (err: any) {
+    } catch (err) {
+      const errorMessage = (err as Error).message || 'Error updating status';
       console.error(err);
-      alert(err.message || 'Error updating status');
+      alert(errorMessage);
     }
   };
 

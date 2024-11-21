@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection } from '../../lib/db';
+import { ResultSetHeader, FieldPacket } from 'mysql2';
 
 /**
  * Handle Kamioni operations
@@ -36,12 +37,12 @@ export async function PUT(request: NextRequest) {
   const connection = await getConnection();
 
   try {
-    const [result]: any = await connection.execute(
+    const [result]: [ResultSetHeader, FieldPacket[]] = await connection.execute(
       'UPDATE Kamioni SET status = ? WHERE id = ?',
       [status, id]
     );
 
-    const affectedRows = (result as { affectedRows: number }).affectedRows;
+    const affectedRows = result.affectedRows;
 
     if (affectedRows === 0) {
       return NextResponse.json({ error: 'Kamion not found' }, { status: 404 });

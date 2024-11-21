@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ id: result.insertId, datum, vozac_id, kamion_id, ruta_id }, { status: 201 });
   } catch (error) {
+    console.error('Greška pri dodavanju putovanja:', error);
     return NextResponse.json({ error: 'Failed to add putovanje' }, { status: 500 });
   } finally {
     connection.end();
