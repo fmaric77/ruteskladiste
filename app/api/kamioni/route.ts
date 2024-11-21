@@ -1,5 +1,3 @@
-// app/api/kamioni/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection } from '../../lib/db';
 
@@ -8,7 +6,7 @@ import { getConnection } from '../../lib/db';
  */
 
 // GET all Kamioni
-export async function GET(request: NextRequest) {
+export async function GET() {
   const connection = await getConnection();
 
   try {
@@ -38,12 +36,14 @@ export async function PUT(request: NextRequest) {
   const connection = await getConnection();
 
   try {
-    const [result] = await connection.execute(
+    const [result]: any = await connection.execute(
       'UPDATE Kamioni SET status = ? WHERE id = ?',
       [status, id]
     );
 
-    if ((result as any).affectedRows === 0) {
+    const affectedRows = (result as { affectedRows: number }).affectedRows;
+
+    if (affectedRows === 0) {
       return NextResponse.json({ error: 'Kamion not found' }, { status: 404 });
     }
 

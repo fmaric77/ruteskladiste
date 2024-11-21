@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection } from '../../lib/db';
+import { RowDataPacket, ResultSetHeader, FieldPacket } from 'mysql2';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   const connection = await getConnection();
 
   try {
-    const [rows] = await connection.execute(
+    const [rows]: [RowDataPacket[], FieldPacket[]] = await connection.execute(
       `
       SELECT 
         p.id, 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       [vozacId]
     );
 
-    const formattedRows = rows.map((row: any) => ({
+    const formattedRows = rows.map((row: RowDataPacket) => ({
       ...row,
       datum: row.datum.toISOString().split('T')[0], // Format as 'yyyy-mm-dd'
     }));
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
   const connection = await getConnection();
   const { datum, vozac_id, kamion_id, ruta_id } = await request.json();
   try {
-    const [result]: any = await connection.execute(
+    const [result]: [ResultSetHeader, FieldPacket[]] = await connection.execute(
       'INSERT INTO Putovanja (datum, vozac_id, kamion_id, ruta_id) VALUES (?, ?, ?, ?)',
       [datum, vozac_id, kamion_id, ruta_id]
     );
@@ -79,8 +80,6 @@ export async function PUT(request: NextRequest) {
       [datum, vozac_id, kamion_id, ruta_id, id]
     );
     return NextResponse.json({ id, datum, vozac_id, kamion_id, ruta_id });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update putovanje' }, { status: 500 });
   } finally {
     connection.end();
   }
@@ -92,8 +91,6 @@ export async function DELETE(request: NextRequest) {
   try {
     await connection.execute('DELETE FROM Putovanja WHERE id = ?', [id]);
     return NextResponse.json({ message: 'Putovanje deleted successfully' });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete putovanje' }, { status: 500 });
   } finally {
     connection.end();
   }
