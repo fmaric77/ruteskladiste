@@ -21,6 +21,7 @@ const formatDate = (dateString: string) => {
 
 const SkladistarDashboard = () => {
   const [kamioni, setKamioni] = useState<Kamion[]>([]);
+  const [availableKamioni, setAvailableKamioni] = useState<Kamion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -42,7 +43,7 @@ const SkladistarDashboard = () => {
         }
 
         // Fetch kamioni data
-        const res = await fetch('/api/kamioni');
+        const res = await fetch(`/api/kamioni-na-skladistu?skladiste_id=${skladiste.id}`);
         const data = await res.json();
 
         if (!res.ok) {
@@ -50,6 +51,16 @@ const SkladistarDashboard = () => {
         }
 
         setKamioni(data);
+
+        // Fetch available kamioni data
+        const availableRes = await fetch(`/api/available-trucks?skladiste_id=${skladiste.id}`);
+        const availableData = await availableRes.json();
+
+        if (!availableRes.ok) {
+          throw new Error(availableData.error || 'Failed to fetch available trucks');
+        }
+
+        setAvailableKamioni(availableData);
       } catch (err) {
         const errorMessage = (err as Error).message || 'Greška pri učitavanju podataka.';
         console.error(err);
@@ -88,6 +99,70 @@ const SkladistarDashboard = () => {
     }
   };
 
+  const handleAddTruck = async (kamionId: number) => {
+    const storedSkladiste = localStorage.getItem('skladiste');
+    if (!storedSkladiste) {
+      router.push('/');
+      return;
+    }
+
+    const skladiste = JSON.parse(storedSkladiste);
+
+    try {
+      const res = await fetch('/api/add-truck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kamionId, skladisteId: skladiste.id }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to add truck');
+      }
+
+      // Refresh the data
+      setAvailableKamioni((prev) => prev.filter((kamion) => kamion.id !== kamionId));
+      setKamioni((prev) => [...prev, availableKamioni.find((kamion) => kamion.id === kamionId)!]);
+    } catch (err) {
+      const errorMessage = (err as Error).message || 'Error adding truck';
+      console.error(err);
+      alert(errorMessage);
+    }
+  };
+
+  const handleRemoveTruck = async (kamionId: number) => {
+    const storedSkladiste = localStorage.getItem('skladiste');
+    if (!storedSkladiste) {
+      router.push('/');
+      return;
+    }
+
+    const skladiste = JSON.parse(storedSkladiste);
+
+    try {
+      const res = await fetch('/api/remove-truck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kamionId, skladisteId: skladiste.id }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to remove truck');
+      }
+
+      // Refresh the data
+      setKamioni((prev) => prev.filter((kamion) => kamion.id !== kamionId));
+      setAvailableKamioni((prev) => [...prev, kamioni.find((kamion) => kamion.id === kamionId)!]);
+    } catch (err) {
+      const errorMessage = (err as Error).message || 'Error removing truck';
+      console.error(err);
+      alert(errorMessage);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('skladiste');
     router.push('/');
@@ -113,6 +188,35 @@ const SkladistarDashboard = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4">
       <div className="w-full max-w-3xl">
         <h1 className="text-2xl font-bold mb-6 text-center text-white">Kamioni</h1>
+        <h2 className="text-xl font-bold mb-4 text-center text-white">Slobodni Kamioni</h2>
+        <ul className="space-y-4 mb-8">
+          {availableKamioni.map((kamion) => (
+            <li
+              key={kamion.id}
+              className="p-4 border border-gray-600 rounded-lg shadow bg-gray-700 text-white flex justify-between items-center"
+            >
+              <div>
+                <p>
+                  <strong>Registracija:</strong> {kamion.registracija}
+                </p>
+                <p>
+                  <strong>Datum Registracije:</strong> {formatDate(kamion.datum_registracije)}
+                </p>
+                <p>
+                  <strong>Status:</strong> {kamion.status}
+                </p>
+              </div>
+              <button
+                onClick={() => handleAddTruck(kamion.id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              >
+                Dodaj
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <h2 className="text-xl font-bold mb-4 text-center text-white">Kamioni na Skladištu</h2>
         <ul className="space-y-4 mb-8">
           {kamioni.map((kamion) => (
             <li
@@ -130,7 +234,7 @@ const SkladistarDashboard = () => {
                   <strong>Status:</strong> {kamion.status}
                 </p>
               </div>
-              <div>
+              <div className="flex space-x-4">
                 <select
                   value={kamion.status}
                   onChange={(e) =>
@@ -144,6 +248,12 @@ const SkladistarDashboard = () => {
                   <option value="Otpremljen">Otpremljen</option>
                   <option value="Na servisu">Na servisu</option>
                 </select>
+                <button
+                  onClick={() => handleRemoveTruck(kamion.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Ukloni
+                </button>
               </div>
             </li>
           ))}
