@@ -52,7 +52,7 @@ const SkladistarDashboard = () => {
 
         setKamioni(data);
 
-        // Fetch available kamioni data
+        //Dohvati podatke o dostupnim kamionima
         const availableRes = await fetch(`/api/available-trucks?skladiste_id=${skladiste.id}`);
         const availableData = await availableRes.json();
 
