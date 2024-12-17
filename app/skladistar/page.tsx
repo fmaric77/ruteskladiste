@@ -42,7 +42,7 @@ const SkladistarDashboard = () => {
           return;
         }
 
-        // Fetch kamioni data
+        // Dohvati podatke o kamionima na skladištu
         const res = await fetch(`/api/kamioni-na-skladistu?skladiste_id=${skladiste.id}`);
         const data = await res.json();
 
@@ -121,7 +121,7 @@ const SkladistarDashboard = () => {
         throw new Error(data.error || 'Failed to add truck');
       }
 
-      // Refresh the data
+      // Osvježi podatke
       setAvailableKamioni((prev) => prev.filter((kamion) => kamion.id !== kamionId));
       setKamioni((prev) => [...prev, availableKamioni.find((kamion) => kamion.id === kamionId)!]);
     } catch (err) {
@@ -153,7 +153,7 @@ const SkladistarDashboard = () => {
         throw new Error(data.error || 'Failed to remove truck');
       }
 
-      // Refresh the data
+      // Osvježi podatke
       setKamioni((prev) => prev.filter((kamion) => kamion.id !== kamionId));
       setAvailableKamioni((prev) => [...prev, kamioni.find((kamion) => kamion.id === kamionId)!]);
     } catch (err) {

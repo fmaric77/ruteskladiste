@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const formattedRows = rows.map((row: RowDataPacket) => ({
       ...row,
-      datum: row.datum.toISOString().split('T')[0], // Format as 'yyyy-mm-dd'
+      datum: row.datum.toISOString().split('T')[0], 
     }));
 
     return NextResponse.json(formattedRows);
