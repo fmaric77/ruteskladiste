@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnection } from '../../lib/db';
-import { ResultSetHeader, FieldPacket } from 'mysql2';
+import { openTripSql } from '../../lib/openTrip';
+import { RowDataPacket } from 'mysql2';
 
 /**
  * Handle Kamioni operations
@@ -37,19 +38,61 @@ export async function PUT(request: NextRequest) {
   const connection = await getConnection();
 
   try {
-    const [result]: [ResultSetHeader, FieldPacket[]] = await connection.execute(
+    const [existing] = await connection.execute<RowDataPacket[]>(
+      'SELECT status FROM Kamioni WHERE id = ?',
+      [id]
+    );
+    if (existing.length === 0) {
+      return NextResponse.json({ error: 'Kamion not found' }, { status: 404 });
+    }
+    if (existing[0].status === status) {
+      return NextResponse.json({ message: 'Kamion status updated successfully' });
+    }
+
+    const [trips] = await connection.execute<RowDataPacket[]>(
+      `SELECT p.id, DATE_FORMAT(p.datum, '%Y-%m-%d') AS dan, p.datum = CURDATE() AS danas,
+              (
+                SELECT d.dogadaj
+                FROM Dogadaji d
+                WHERE d.putovanje_id = p.id
+                ORDER BY d.vrijeme DESC, d.id DESC
+                LIMIT 1
+              ) AS zadnji,
+              (
+                SELECT COUNT(*)
+                FROM Dogadaji d
+                WHERE d.putovanje_id = p.id AND d.dogadaj <> 'Dostupan'
+              ) AS radnih
+       FROM Putovanja p
+       WHERE p.kamion_id = ?
+         AND (p.datum = CURDATE() OR ${openTripSql})
+       ORDER BY p.datum ASC, p.id ASC`,
+      [id]
+    );
+    const open = new Set(['U procesu utovara', 'Utovaren', 'Otpremljen']);
+    const finished = (row: RowDataPacket) => row.zadnji === 'Dostupan' && Number(row.radnih) > 0;
+    const unfinished = [...trips].reverse().find((row) => open.has(row.zadnji));
+    const todayTrip = trips.find((row) => Number(row.danas) === 1 && !finished(row));
+    const startsNewLoad = status === 'U procesu utovara' || status === 'Utovaren';
+    const trip = startsNewLoad && unfinished?.zadnji === 'Otpremljen'
+      ? todayTrip
+      : (unfinished ?? todayTrip);
+
+    await connection.beginTransaction();
+    await connection.execute(
       'UPDATE Kamioni SET status = ? WHERE id = ?',
       [status, id]
     );
+    await connection.execute(
+      `INSERT INTO Dogadaji (kamion_id, putovanje_id, putovanje_datum, dogadaj, vrijeme)
+       VALUES (?, ?, COALESCE(?, CURDATE()), ?, NOW())`,
+      [id, trip?.id ?? null, trip?.dan ?? null, status]
+    );
+    await connection.commit();
 
-    const affectedRows = result.affectedRows;
-
-    if (affectedRows === 0) {
-      return NextResponse.json({ error: 'Kamion not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ message: 'Kamion status updated successfully' });
+    return NextResponse.json({ message: 'Kamion status updated successfully', putovanjeId: trip?.id ?? null });
   } catch (error) {
+    await connection.rollback();
     console.error('Error updating Kamion status:', error);
     return NextResponse.json({ error: 'Failed to update Kamion status' }, { status: 500 });
   } finally {
